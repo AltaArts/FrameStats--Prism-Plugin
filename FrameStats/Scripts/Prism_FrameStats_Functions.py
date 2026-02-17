@@ -44,14 +44,19 @@
 
 
 import os
-import subprocess
-import json
+import re
+import logging
+
 
 from qtpy.QtCore import *
 from qtpy.QtGui import *
 from qtpy.QtWidgets import *
 
 from PrismUtils.Decorators import err_catcher_plugin as err_catcher
+
+
+logger = logging.getLogger(__name__)
+
 
 
 class Prism_FrameStats_Functions(object):
@@ -117,20 +122,31 @@ class Prism_FrameStats_Functions(object):
     @err_catcher(name=__name__)
     def launchFrameStats(self, filePath):
 
+        ext = self.getImageExtension(basefile=filePath)
+
         seqName, seqDir, firstFrame, lastFrame, seqFiles = self.getSequenceData(filePath)
 
-        seqCount = len(seqFiles)
+        if ext in self.core.media.supportedFormats and ext not in self.core.media.videoFormats:
+            framesStr = f"{firstFrame} - {lastFrame}"
+            seqCount = len(seqFiles)
+            missingFrames = self.findMissingFrames(firstFrame, lastFrame, filePath)
+
+        else:
+            seqCount = "n/a"
+            framesStr = "n/a"
+            missingFrames = "n/a"
+
 
         self.core.popup(f"seqName:  {seqName}\n\n"                        #   TESTING
                         f"seqDir:  {seqDir}\n\n"
                         f"seqCount: {seqCount}\n\n"
-                        f"frames:  {firstFrame} - {lastFrame}")
+                        f"frames:  {framesStr}\n\n"
+                        f"missingFrames: {missingFrames}")
 
 
 
     @err_catcher(name=__name__)
     def getSequenceData(self, filePath):
-
         extension = self.getImageExtension(basefile=filePath)
         sourceDir = os.path.dirname(filePath)
 
@@ -148,15 +164,12 @@ class Prism_FrameStats_Functions(object):
 
         if len(validFiles) > 1 and extension not in self.core.media.videoFormats:
             firstFrame, lastFrame = self.core.media.getFrameRangeFromSequence(validFiles, baseFile=filePath)
-
-        seqDict = self.core.media.detectSequences(validFiles)
-        seqName, seqFiles = next(iter(seqDict.items()))
+            seqDict = self.core.media.detectSequences(validFiles)
+            seqName, seqFiles = next(iter(seqDict.items()))
+        else:
+            seqName = firstFrame = lastFrame = seqFiles = None
 
         return seqName, sourceDir, firstFrame, lastFrame, seqFiles
-    
-
-
-
     
 
     @err_catcher(name=__name__)
@@ -188,6 +201,45 @@ class Prism_FrameStats_Functions(object):
             logger.warning("ERROR:  Unable to get Image Extension")
             return None
 
+
+
+    @err_catcher(name=__name__)
+    def findMissingFrames(self, firstFrame, lastFrame, filePath) -> list:
+        missingFrames = []
+
+        padding = int(self.core.framePadding)
+
+        directory = os.path.dirname(filePath)
+        filename = os.path.basename(filePath)
+
+        #   Split Basename and Extension
+        name, ext = os.path.splitext(filename)
+
+        #   Match frame number at end of filename
+        match = re.search(r'(\d+)$', name)
+        if not match:
+            # No frame number found
+            return missingFrames
+
+        frame_str = match.group(1)
+        frame_len = len(frame_str)
+
+        #   Enforce padding match
+        if frame_len != padding:
+            pass
+
+        # Get the base name without frame number
+        base = name[:-frame_len]
+
+        for frame in range(int(firstFrame), int(lastFrame) + 1):
+            frame_formatted = str(frame).zfill(padding)
+            expected_file = f"{base}{frame_formatted}{ext}"
+            expected_path = os.path.join(directory, expected_file)
+
+            if not os.path.exists(expected_path):
+                missingFrames.append(frame)
+
+        return missingFrames
 
 
 
