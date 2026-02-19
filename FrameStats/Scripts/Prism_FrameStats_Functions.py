@@ -156,14 +156,12 @@ class Prism_FrameStats_Functions(object):
         else:
             files = os.listdir(sourceDir)
 
-
         #   Filter and get sequence Dict
         validFiles = self.core.media.filterValidMediaFiles(files)
         validFiles = sorted(validFiles, key=lambda x: x if "cryptomatte" not in os.path.basename(x) else "zzz" + x)
 
-
         if len(validFiles) > 1 and extension not in self.core.media.videoFormats:
-            firstFrame, lastFrame = self.core.media.getFrameRangeFromSequence(validFiles, baseFile=filePath)
+            firstFrame, lastFrame = self.core.media.getFrameRangeFromSequence(validFiles)
             seqDict = self.core.media.detectSequences(validFiles)
             seqName, seqFiles = next(iter(seqDict.items()))
         else:

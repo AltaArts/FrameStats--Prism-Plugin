@@ -48,7 +48,7 @@ import os
 
 class Prism_FrameStats_Variables(object):
     def __init__(self, core, plugin):
-        self.version = "v0.1"
+        self.version = "v0.2"
         self.pluginName = "FrameStats"
         self.pluginType = "Custom"
         self.platforms = ["Windows", "Linux", "Darwin"]
